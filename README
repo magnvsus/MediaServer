@@ -1,10 +1,25 @@
-After changing docker compose, run the following command:
+PERSONAL MEDIA SERVER
 
-	 sudo docker compose up -d --force-recreate --remove-orphans
+
+
+
+DEPLOYING SERVER:
+
+After downloading, edit nginx.conf
+Change "domainname" to your host's domain
+
+You must also edit the docker-compose.yaml to fit your configuration.
+Change "domainname" to your host's domain
+Change path bindings to desired storage locations for storage.
+
+After completing previous steps, server is ready for deployment.
+
+Run the following command:
+
+	 docker compose up -d
+
+After changes, you may add the following flags
 
 --force-recreate: forces a new container to be created regardless of existing
 --remove-orphans: prunes containers removed from compose
 
-To open shell of container
-
-	docker exec -it <container_id> bash
