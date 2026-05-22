@@ -1,6 +1,16 @@
 PERSONAL MEDIA SERVER
 
+Root location hosts Linktree. This frontpage will display a list of personal links. Similar to services like linktr.ee
+In addition, location /speedtest hosts a OpenSpeedTest container. This is a great way to test connection speeds from remote locations to your home server.
 
+watch. subdomain hosts Jellyfin. The perfect media server webapp. Serve all your movies through the web.
+
+listen. subdomain hosts Navidrome. Self-hosted music streaming weebapp. Listen to your music with a UX like spotify.
+
+drive. subdomain hosts Cloudreve. Chosen for its lightweight build compared to alternatives.
+There are two other options which I commented out in the config files.
+Most popular is NextCloud. This might be the most feature rich storage app out there.
+Bewcloud is also a good alternative. Lightweight and easy set up.
 
 
 DEPLOYING SERVER:
