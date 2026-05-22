@@ -1,0 +1,305 @@
+services:
+
+  website:
+    image: nginx:latest
+    container_name: website
+    volumes:
+      - /var/www/html:/var/www/html
+      - /etc/letsencrypt/live/domainname/fullchain.pem:/etc/letsencrypt/live/domainname/fullchain.pem
+      - /etc/letsencrypt/live/domainname/privkey.pem:/etc/letsencrypt/live/domainname/privkey.pem
+      - /var/www/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    depends_on:
+      - linkstack
+      - speedtest
+      - jellyfin
+      - cloudreve
+      - navidrome
+     # - homegallery
+    #network_mode: bridge
+
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    # Optional - specify the uid and gid you would like Jellyfin to use instead of root
+    ports:
+      - 8920:8920/tcp
+      - 8096:8096/tcp
+    volumes:
+      - /var/www/jellyfin/config:/config
+      - /path/to/appdata:/cache
+      - type: bind
+        source: /path/to/media
+        target: /media2
+        read_only: true
+      # Optional - extra fonts to be used during transcoding with subtitle burn-in
+      #- type: bind
+        #source: /path/to/fonts
+        #target: /usr/local/share/fonts/custom
+        #read_only: true
+    restart: 'unless-stopped'
+    # Optional - alternative address used for autodiscovery
+    #environment:
+      #- JELLYFIN_PublishedServerUrl=http://example.com
+    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+    #extra_hosts:
+      #- 'host.docker.internal:host-gateway'
+
+  linkstack:
+    image: 'linkstackorg/linkstack:latest'
+    container_name: linkstack
+    environment:
+      TZ: 'North America/Florida'
+      SERVER_ADMIN: 'admin@example.com'
+      HTTP_SERVER_NAME: 'domainname'
+      HTTPS_SERVER_NAME: 'domainname'
+      LOG_LEVEL: 'info'
+      PHP_MEMORY_LIMIT: '256M'
+      UPLOAD_MAX_FILESIZE: '500G'
+    volumes:
+      - 'linkstack_data:/htdocs'
+    ports:
+      - '8190:443'
+    restart: always
+    #network_mode: bridge
+
+
+  speedtest:
+       environment:
+           - ENABLE_LETSENCRYPT=True
+           - DOMAIN_NAME=speedtest.yourdomain.com
+           - USER_EMAIL=you@yourdomain.com
+           - VERIFY_OWNERSHIP="TXT-FILE-CONTENT"
+       restart: unless-stopped
+       container_name: openspeedtest
+       ports:
+            - '3001:3001'
+       image: openspeedtest/latest
+       #network_mode: bridge
+# cloudreve
+  cloudreve:
+    image: cloudreve/cloudreve:v4
+    container_name: cloudreve
+    depends_on:
+      postgresql:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    ports:
+      - 5212:5212
+      - 6888:6888
+      - 6888:6888/udp
+    environment:
+      - CR_CONF_Database.Type=postgres
+      - CR_CONF_Database.Host=postgresql
+      - CR_CONF_Database.User=cloudreve
+      - CR_CONF_Database.Name=cloudreve
+      - CR_CONF_Database.Port=5432
+      - CR_CONF_Redis.Server=redis:6379
+    volumes:
+      - backend_data:/cloudreve/data
+      - /etc/letsencrypt/live/domainname/fullchain.pem:/etc/letsencrypt/live/domainname/fullchain.pem
+      - /etc/letsencrypt/live/domainname/privkey.pem:/etc/letsencrypt/live/domainname/privkey.pem
+      - /etc/cloudreve/conf.ini:/data/conf.ini
+
+  postgresql:
+    image: postgres:17
+    container_name: postgresql
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=cloudreve
+      - POSTGRES_DB=cloudreve
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - database_postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+
+# bewcloud
+#  bewcloud:
+#    container_name: bewcloud
+#    image: ghcr.io/bewcloud/bewcloud:v4.5.1
+#    # NOTE: uncomment below (and comment above) only if you pulled the repo and want to build the image locally
+#    # build:
+#    #   context: .
+#    #   dockerfile: Dockerfile
+#    restart: always
+#    ports:
+#      - 8000:8000
+#    mem_limit: '256m'
+#    env_file:
+#      - path: .env
+#        required: true
+#    volumes:
+#      - /var/www/bewcloud/data-files:/app/data-files
+#      - /var/www/bewcloud/bewcloud.config.ts:/app/bewcloud.config.ts
+#      - /path/to/files:/main
+#    depends_on:
+#      - postgresql
+#      - radicale
+#
+#  postgresql:
+#    container_name: postgresql
+#    image: postgres:18.1
+#    environment:
+#      - POSTGRES_USER=postgres
+#      - POSTGRES_PASSWORD=fake
+#      - POSTGRES_DB=bewcloud
+#    restart: always
+#    volumes:
+#      - bewcloud-db:/var/lib/postgresql/18/docker
+#    # NOTE: uncomment below only if you need to connect to the database from outside the container
+#    # ports:
+#    #   - 127.0.0.1:5432:5432
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#    mem_limit: '256m'
+#
+#  # NOTE: If you don't want to use the CardDav/CalDav servers, you can comment/remove this service.
+#  radicale:
+#    container_name: radicale
+#    image: tomsquest/docker-radicale:3.6.0.0
+#    # NOTE: uncomment below only if you need to connect to the CardDav/CalDav servers from outside the container
+#    # ports:
+#    #   - 127.0.0.1:5232:5232
+#    init: true
+#    read_only: true
+#    security_opt:
+#      - no-new-privileges:true
+#    cap_drop:
+#      - ALL
+#    cap_add:
+#      - SETUID
+#      - SETGID
+#      - CHOWN
+#      - KILL
+#    restart: always
+#    volumes:
+#      - /var/www/radicale/data-radicale:/data
+#      - /var/www/radicale/radicale-config:/config:ro
+#    mem_limit: '256m'
+#
+# nextcloud
+#
+#  mariadb:
+#    container_name: mariadb
+#    # Note: Check the recommend version here: https://docs.nextcloud.com/server/latest/admin_manual/installation/system_requirements.html#server
+#    image: mariadb:lts
+#    restart: always
+#    command: --transaction-isolation=READ-COMMITTED
+#    volumes:
+#      - db:/var/lib/mysql
+#    environment:
+#      - MYSQL_ROOT_PASSWORD=
+#      - MYSQL_PASSWORD=
+#      - MYSQL_DATABASE=nextcloud
+#      - MYSQL_USER=nextcloud
+#
+#  # Note: Redis is an external service. You can find more information about the configuration here:
+#  # https://hub.docker.com/_/redis
+#  redis:
+#    container_name: redis
+#    image: redis:alpine
+#    restart: always
+#
+#  nextcloud:
+#    container_name: nextcloud
+#    image: nextcloud
+#    restart: always
+#    ports:
+#      - 8080:80
+#    depends_on:
+#      - redis
+#      - mariadb
+#    volumes:
+#      - nextcloud:/var/www/html
+#    environment:
+#      - MYSQL_PASSWORD=
+#      - MYSQL_DATABASE=nextcloud
+#      - MYSQL_USER=nextcloud
+#      - MYSQL_HOST=db
+
+  navidrome:
+    container_name: navidrome
+    image: deluan/navidrome:latest
+    user: 1000:1000 # should be owner of volumes
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+   # environment:
+      # Optional: put your config options customization here. Examples:
+      # ND_LOGLEVEL: debug
+    volumes:
+      - "/path/to/appdata:/data"
+      - "/path/to/music:/music:ro"
+#
+#  homegallery-api:
+#    # custom build via
+#    #build: packages/api-server
+#    image: xemle/home-gallery-api-server
+#    container_name: homegallery-api
+#   # environment:
+#      # TensorflowJS backends
+#      # - cpu: slowest and best support
+#      # - wasm: good perfromance for arm64 and amd64 platforms
+#      # - node: best performance on amd64 platform
+#      #- BACKEND=cpu
+#      #- BACKEND=wasm
+#      #- BACKEND=node
+#  homegallery:
+#    # custom build via
+#    #build: .
+#    image: xemle/home-gallery
+#    container_name: homegallery
+#    environment:
+#      - GALLERY_API_SERVER=http://api:3000
+#      - GALLERY_API_SERVER_CONCURRENT=5 # for SoC devices like Rasperry Pi. Use 5 otherwise
+#      - GALLERY_API_SERVER_TIMEOUT=30 # for SoC devices like Rasperry Pi. Use 30 otherwise
+#      #- GALLERY_USE_NATIVE=ffprobe,ffmpeg,vipsthumbnail # On issues with sharp resizer
+#      - GALLERY_OPEN_BROWSER=false
+#      # Use polling for safety of possible network mounts. Try 0 to use inotify via fs.watch
+#      - GALLERY_WATCH_POLL_INTERVAL=300
+#    volumes:
+#      - /path/to/appdata:/data
+#      # Mount your media directories below /data
+#      - /path/to/photos:/data/Pictures
+#    ports:
+#      - "3000:3000"
+#    user: "${CURRENT_USER}"
+#    entrypoint: ['node', '/app/gallery.js']
+#    command: ['run', 'server']
+#    depends_on:
+#      - homegallery-api
+
+
+volumes:
+  linkstack_data:
+#cloudreve
+  backend_data:
+  database_postgres:
+  redis_data:
+# bewcloud
+#  bewcloud-db:
+#    driver: local
+
+# nextcloud
+#
+#  nextcloud:
+#  db:  
+
+networks:
+  default:
+    name: website
+    external: true
