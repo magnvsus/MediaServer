@@ -1,0 +1,10 @@
+After changing docker compose, run the following command:
+
+         sudo docker compose up -d --force-recreate --remove-orphans
+
+--force-recreate: forces a new container to be created regardless of existing
+--remove-orphans: prunes containers removed from compose
+
+To open shell of container
+
+        docker exec -it <container_id> bash
